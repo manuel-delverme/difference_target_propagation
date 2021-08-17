@@ -16,19 +16,18 @@
 A collection of helper functions
 --------------------------------
 """
-import numpy as np
-import torch
-from torch.utils.data import Dataset
-from tensorboardX import SummaryWriter
 import os
-import pandas
 import warnings
 
 # from lib import networks, direct_feedback_networks
 import matplotlib
+import numpy as np
+import torch
+from tensorboardX import SummaryWriter
+from torch.utils.data import Dataset
+
 # Force matplotlib to not use any Xwindows backend.
 matplotlib.use('Agg')
-from matplotlib import rc
 import matplotlib.pyplot as plt
 
 
@@ -39,10 +38,11 @@ class RegressionDataset(Dataset):
         inputs (numpy.ndarray): The input samples.
         outputs (numpy.ndarray): The output samples.
     """
+
     def __init__(self, inputs, outputs, double_precision=False):
-        assert(len(inputs.shape) == 2)
-        assert(len(outputs.shape) == 2)
-        assert(inputs.shape[0] == outputs.shape[0])
+        assert (len(inputs.shape) == 2)
+        assert (len(outputs.shape) == 2)
+        assert (inputs.shape[0] == outputs.shape[0])
 
         if double_precision:
             self.inputs = torch.from_numpy(inputs).to(torch.float64)
@@ -82,7 +82,7 @@ def accuracy(predictions, labels):
     total = labels.size(0)
     correct = (pred_labels == labels).sum().item()
 
-    return correct/total
+    return correct / total
 
 
 def choose_optimizer(args, net):
@@ -103,81 +103,18 @@ def choose_optimizer(args, net):
 
 
 def choose_forward_optimizer(args, net):
-    """
-    Return the wished optimizer (based on inputs from args).
-    Args:
-        args: cli
-        net: neural network
-    Returns: optimizer
-
-    """
-    if args.freeze_BPlayers:
-        forward_params = net.get_reduced_forward_parameter_list()
-    elif args.network_type in ('BP', 'BPConv'):
-        if args.shallow_training:
-            print('Shallow training')
-            forward_params = net.layers[-1].parameters()
-        elif args.only_train_first_layer:
-            print('Only training first layer')
-            forward_params = net.layers[0].parameters()
-        elif args.only_train_last_two_layers:
-            raise NotImplementedError('not yet implemented for BP')
-        elif args.only_train_last_three_layers:
-            raise NotImplementedError('not yet implemented for BP')
-        elif args.only_train_last_four_layers:
-            raise NotImplementedError('not yet implemented for BP')
-        else:
-            forward_params = net.parameters()
-    else:
-        if args.only_train_first_layer:
-            print('Only training first layer')
-            forward_params = net.get_forward_parameter_list_first_layer()
-        elif args.freeze_output_layer:
-            print('Freezing output layer')
-            forward_params = net.get_reduced_forward_parameter_list()
-        elif args.only_train_last_two_layers:
-            forward_params = net.get_forward_parameters_last_two_layers()
-        elif args.only_train_last_three_layers:
-            forward_params = net.get_forward_parameters_last_three_layers()
-        elif args.only_train_last_four_layers:
-            forward_params = net.get_forward_parameters_last_four_layers()
-        else:
-            forward_params = net.get_forward_parameter_list()
-
+    forward_params = net.get_forward_parameter_list()
     if args.optimizer == 'SGD':
-        print('Using SGD optimizer')
+        forward_optimizer = torch.optim.SGD(forward_params, lr=args.lr, momentum=args.momentum, weight_decay=args.forward_wd)
 
-        forward_optimizer = torch.optim.SGD(forward_params,
-                                            lr=args.lr, momentum=args.momentum,
-                                            weight_decay=args.forward_wd)
     elif args.optimizer == 'RMSprop':
-        print('Using RMSprop optimizer')
-
-        forward_optimizer = torch.optim.RMSprop(
-            forward_params,
-            lr=args.lr,
-            momentum=args.momentum,
-            alpha=0.95,
-            eps=0.03,
-            weight_decay=args.forward_wd,
-            centered=True
-        )
+        forward_optimizer = torch.optim.RMSprop(forward_params, lr=args.lr, momentum=args.momentum, alpha=0.95, eps=0.03, weight_decay=args.forward_wd, centered=True)
 
     elif args.optimizer == 'Adam':
-        print('Using Adam optimizer')
-
-        forward_optimizer = torch.optim.Adam(
-            forward_params,
-            lr=args.lr,
-            betas=(args.beta1, args.beta2),
-            eps=args.epsilon,
-            weight_decay=args.forward_wd
-        )
+        forward_optimizer = torch.optim.Adam(forward_params, lr=args.lr, betas=(args.beta1, args.beta2), eps=args.epsilon, weight_decay=args.forward_wd)
 
     else:
-        raise ValueError('Provided optimizer "{}" is not supported'.format(
-            args.optimizer
-        ))
+        raise ValueError('Provided optimizer "{}" is not supported'.format(args.optimizer))
 
     return forward_optimizer
 
@@ -194,7 +131,6 @@ def choose_feedback_optimizer(args, net):
     """
 
     feedback_params = net.get_feedback_parameter_list()
-
 
     if args.optimizer_fb == 'SGD':
         feedback_optimizer = torch.optim.SGD(feedback_params,
@@ -230,7 +166,7 @@ def choose_feedback_optimizer(args, net):
     return feedback_optimizer
 
 
-class OptimizerList(object):
+class OptimizerList:
     """ A class for stacking a separate optimizer for each layer in a list. If
     no separate learning rates per layer are required, a single optimizer is
     stored in the optimizer list."""
@@ -266,7 +202,7 @@ class OptimizerList(object):
                         forward_params = net.get_forward_parameter_list()
 
                     if (not args.no_bias and not args.freeze_output_layer and
-                        len(args.lr)*2 != len(forward_params)) or \
+                        len(args.lr) * 2 != len(forward_params)) or \
                             (args.no_bias and not args.freeze_output_layer and
                              len(args.lr) != len(forward_params)):
                         raise NetworkError('The lenght of the list with learning rates '
@@ -312,7 +248,7 @@ class OptimizerList(object):
         else:
             raise ValueError('Command line argument lr={} is not recognized '
                              'as a float'
-                       'or list'.format(args.lr))
+                             'or list'.format(args.lr))
 
         self._optimizer_list = optimizer_list
 
@@ -331,6 +267,7 @@ class OptimizerList(object):
         else:
             self._optimizer_list[i].step()
 
+
 class FbOptimizerList(object):
     def __init__(self, args, net):
         if isinstance(args.lr_fb, float):
@@ -347,19 +284,19 @@ class FbOptimizerList(object):
             conv_fb_parameters = net.get_conv_feedback_parameter_list()
             fc_fb_parameters = net.get_fc_feedback_parameter_list()
             conv_fb_optimizer = torch.optim.Adam(
-                                    conv_fb_parameters,
-                                    lr=args.lr_fb[0],
-                                    betas=(args.beta1_fb, args.beta2_fb),
-                                    eps=args.epsilon_fb[0],
-                                    weight_decay=args.feedback_wd
-                                    )
+                conv_fb_parameters,
+                lr=args.lr_fb[0],
+                betas=(args.beta1_fb, args.beta2_fb),
+                eps=args.epsilon_fb[0],
+                weight_decay=args.feedback_wd
+            )
             fc_fb_optimizer = torch.optim.Adam(
-                                    fc_fb_parameters,
-                                    lr=args.lr_fb[1],
-                                    betas=(args.beta1_fb, args.beta2_fb),
-                                    eps=args.epsilon_fb[1],
-                                    weight_decay=args.feedback_wd
-                                    )
+                fc_fb_parameters,
+                lr=args.lr_fb[1],
+                betas=(args.beta1_fb, args.beta2_fb),
+                eps=args.epsilon_fb[1],
+                weight_decay=args.feedback_wd
+            )
 
             optimizer_list = [conv_fb_optimizer, fc_fb_optimizer]
         self._optimizer_list = optimizer_list
@@ -373,39 +310,18 @@ class FbOptimizerList(object):
             optimizer.zero_grad()
 
 
-def save_logs(writer, step, net, loss, accuracy, test_loss, test_accuracy,
-              val_loss, val_accuracy):
-    """
-    Save logs and plots to tensorboardX
-    Args:
-        writer (SummaryWriter): TensorboardX summary writer
-        step: global step
-        net: network
-        loss: current loss of the training iteration
+def save_logs(writer, step, loss, accuracy, test_loss, test_accuracy, val_loss, val_accuracy):
+    writer.add_scalar(tag='training/loss', scalar_value=loss, global_step=step)
+    writer.add_scalar(tag='training/test_loss', scalar_value=test_loss, global_step=step)
 
-    """
-    net.save_logs(writer, step) #FIXME: Uncomment again. This does not work for DKDTP
-    writer.add_scalar(tag='training_metrics/loss',
-                      scalar_value=loss,
-                      global_step=step)
-    writer.add_scalar(tag='training_metrics/test_loss',
-                      scalar_value=test_loss,
-                      global_step=step)
     if val_loss is not None:
-        writer.add_scalar(tag='training_metrics/val_loss',
-                          scalar_value=val_loss,
-                          global_step=step)
+        writer.add_scalar(tag='training/val_loss', scalar_value=val_loss, global_step=step)
     if accuracy is not None:
-        writer.add_scalar(tag='training_metrics/accuracy',
-                          scalar_value=accuracy,
-                          global_step=step)
-        writer.add_scalar(tag='training_metrics/test_accuracy',
-                          scalar_value=test_accuracy,
-                          global_step=step)
+        writer.add_scalar(tag='training/accuracy', scalar_value=accuracy, global_step=step)
+        writer.add_scalar(tag='training/test_accuracy', scalar_value=test_accuracy, global_step=step)
         if val_accuracy is not None:
-            writer.add_scalar(tag='training_metrics/val_accuracy',
-                              scalar_value=val_accuracy,
-                              global_step=step)
+            writer.add_scalar(tag='training/val_accuracy', scalar_value=val_accuracy, global_step=step)
+
 
 def save_forward_batch_logs(args, writer, step, net, loss, output_activation):
     """
@@ -421,7 +337,7 @@ def save_forward_batch_logs(args, writer, step, net, loss, output_activation):
     """
     if args.save_BP_angle:
         retain_graph = args.save_GN_angle or args.save_GN_activations_angle or \
-            args.save_BP_activations_angle or args.save_GNT_angle or \
+                       args.save_BP_activations_angle or args.save_GNT_angle or \
                        args.save_nullspace_norm_ratio
         # if we need to compute and save other angles afterwards, the gradient
         # graph should be retained such that it can be reused
@@ -449,7 +365,7 @@ def save_forward_batch_logs(args, writer, step, net, loss, output_activation):
     if args.save_nullspace_norm_ratio:
         retain_graph = False
         net.save_nullspace_norm_ratio(writer, step, output_activation,
-                                  retain_graph)
+                                      retain_graph)
 
 
 def save_feedback_batch_logs(args, writer, step, net, init=False):
@@ -535,7 +451,7 @@ def compute_jacobian(input, output, structured_tensor=False,
 
     if structured_tensor:
         shape = list(output.shape)
-        shape.append(-1) # last dimension can be inferred from the jacobian size
+        shape.append(-1)  # last dimension can be inferred from the jacobian size
         jacobian = jacobian.view(shape)
 
     return jacobian
@@ -617,8 +533,8 @@ def compute_angle(A, B):
         print('tensor B contains nans:')
         print(B)
 
-    inner_product = torch.sum(A*B)  #equal to inner product of flattened tensors
-    cosine = inner_product/(torch.norm(A, p='fro')*torch.norm(B, p='fro'))
+    inner_product = torch.sum(A * B)  # equal to inner product of flattened tensors
+    cosine = inner_product / (torch.norm(A, p='fro') * torch.norm(B, p='fro'))
     if contains_nan(cosine):
         print('cosine contains nans:')
         print('inner product: {}'.format(inner_product))
@@ -627,7 +543,7 @@ def compute_angle(A, B):
 
     if cosine > 1 and cosine < 1 + 1e-5:
         cosine = torch.Tensor([1.])
-    angle = 180/np.pi*torch.acos(cosine)
+    angle = 180 / np.pi * torch.acos(cosine)
     if contains_nan(angle):
         print('angle computation causes NANs. cosines:')
         print(cosine)
@@ -656,10 +572,10 @@ def compute_average_batch_angle(A, B):
     if contains_nan(B):
         print('tensor B contains nans in activation angles:')
         print(B)
-    inner_products = torch.sum(A*B, dim=1)
+    inner_products = torch.sum(A * B, dim=1)
     A_norms = torch.norm(A, p=2, dim=1)
     B_norms = torch.norm(B, p=2, dim=1)
-    cosines = inner_products/(A_norms*B_norms)
+    cosines = inner_products / (A_norms * B_norms)
     if contains_nan(cosines):
         print('cosines contains nans in activation angles:')
         print('inner product: {}'.format(inner_products))
@@ -671,7 +587,7 @@ def compute_average_batch_angle(A, B):
         print('B_norms contains zeros')
     cosines = torch.min(cosines, torch.ones_like(cosines))
     angles = torch.acos(cosines)
-    return 180/np.pi*torch.mean(angles)
+    return 180 / np.pi * torch.mean(angles)
 
 
 class NetworkError(Exception):
@@ -727,45 +643,18 @@ def setup_summary_dict(args):
         mnet: Main network.
         hnet (optional): Hypernetwork.
     """
-    if args.hpsearch:
-        from hpsearch import hpsearch_config
 
     summary = dict()
-
-    if args.hpsearch:
-        summary_keys = hpsearch_config._SUMMARY_KEYWORDS
-    else:
-        summary_keys = [
-                        # 'acc_train',
-                        'acc_train_last',
-                        'acc_train_best',
-                        # 'loss_train',
-                        'loss_train_last',
-                        'loss_train_best',
-                        # 'acc_test',
-                        'acc_test_last',
-                        'acc_test_best',
-                        'acc_val_last',
-                        'acc_val_best',
-                        'acc_test_val_best',
-                        'acc_train_val_best',
-                        'loss_test_val_best',
-                        'loss_train_val_best',
-                        'loss_val_best',
-                        'epoch_best_loss',
-                        'epoch_best_acc',
-                        # 'loss_test',
-                        'loss_test_last',
-                        'loss_test_best',
-                        'rec_loss',
-                        'rec_loss_last',
-                        'rec_loss_best',
-                        'rec_loss_first',
-                        'rec_loss_init',
-                        # 'rec_loss_var',
-                        'rec_loss_var_av',
-                        'finished']
-
+    summary_keys = [  # 'acc_train',
+        'acc_train_last', 'acc_train_best',
+        # 'loss_train',
+        'loss_train_last', 'loss_train_best',
+        # 'acc_test',
+        'acc_test_last', 'acc_test_best', 'acc_val_last', 'acc_val_best', 'acc_test_val_best', 'acc_train_val_best', 'loss_test_val_best', 'loss_train_val_best',
+        'loss_val_best', 'epoch_best_loss', 'epoch_best_acc',
+        # 'loss_test',
+        'loss_test_last', 'loss_test_best', 'rec_loss', 'rec_loss_last', 'rec_loss_best', 'rec_loss_first', 'rec_loss_init',  # 'rec_loss_var',
+        'rec_loss_var_av', 'finished']
 
     for k in summary_keys:
         if k == 'finished':
@@ -773,39 +662,7 @@ def setup_summary_dict(args):
         else:
             summary[k] = -1
 
-    save_summary_dict(args, summary)
-
     return summary
-
-
-def save_summary_dict(args, summary):
-    """Write a text file in the result folder that gives a quick
-    overview over the results achieved so far.
-
-    Args:
-        args (Namespace): command line inputs
-        summary (dict): summary dictionary
-    """
-
-    if args.hpsearch:
-        from hpsearch import hpsearch_config
-        summary_fn = hpsearch_config._SUMMARY_FILENAME
-    else:
-        summary_fn = 'performance_overview.txt'
-    if not os.path.isdir(args.out_dir):
-        os.mkdir(args.out_dir)
-
-    with open(os.path.join(args.out_dir, summary_fn), 'w') as f:
-        for k, v in summary.items():
-            if isinstance(v, list):
-                f.write('%s %s\n' % (k, list_to_str(v)))
-            elif isinstance(v, float):
-                f.write('%s %f\n' % (k, v))
-            elif isinstance(v, (np.ndarray, pandas.DataFrame)):
-                # we don't want to save arrays and dataframes to text files
-                pass
-            else:
-                f.write('%s %d\n' % (k, v))
 
 
 def get_av_reconstruction_loss(network):
@@ -821,9 +678,10 @@ def get_av_reconstruction_loss(network):
     for layer in network.layers[1:]:
         # print(layer.reconstruction_loss)
         reconstruction_losses = np.append(reconstruction_losses,
-                                           layer.reconstruction_loss)
+                                          layer.reconstruction_loss)
 
-        reconstruction_losses = list(filter(lambda x: x != None, reconstruction_losses)) #FIXME: Probably slows everything down, but was needed because there is a None in the first iteration of DKDTP
+        reconstruction_losses = list(
+            filter(lambda x: x != None, reconstruction_losses))  # FIXME: Probably slows everything down, but was needed because there is a None in the first iteration of DKDTP
 
     return np.mean(reconstruction_losses[:-1])
 
@@ -848,20 +706,6 @@ def dict2csv(dct, file_path):
         for key in dct.keys():
             f.write("{}, {} \n".format(key, dct[key]))
 
-
-def process_lr(lr_str):
-    """
-    Process the lr provided by argparse.
-    Args:
-        lr_str (str): a string containing either a single float indicating the
-            learning rate, or a list of learning rates, one for each layer of
-            the network.
-    Returns: a float or a numpy array of learning rates
-    """
-    if ',' in lr_str:
-        return np.array(str_to_list(lr_str, ','))
-    else:
-        return float(lr_str)
 
 def process_hdim(hdim_str):
     if ',' in hdim_str:
@@ -907,33 +751,12 @@ def logit(x):
     return torch.log(x / (1 - x))
 
 
-def plot_loss(summary, logdir, logplot=False):
-    plt.figure()
-    plt.plot(summary['loss_train'])
-    plt.xlabel('epoch')
-    plt.ylabel('loss')
-    plt.title('Train loss')
-    if logplot:
-        plt.yscale('log')
-    plt.savefig(os.path.join(logdir, 'loss_train.svg'))
-    plt.close()
-    plt.figure()
-    plt.plot(summary['loss_test'])
-    plt.xlabel('epoch')
-    plt.ylabel('loss')
-    plt.title('Test loss')
-    if logplot:
-        plt.yscale('log')
-    plt.savefig(os.path.join(logdir, 'loss_test.svg'))
-    plt.close()
-
-
 def make_plot_output_space(args, net, i, loss_function,
                            targets, inputs, steps=20):
     """
-    Make a plot of how the output activations would change if the update 
-    for the parameters of layer(s) i is applied with a varying stepsize from 
-    zero to one. 
+    Make a plot of how the output activations would change if the update
+    for the parameters of layer(s) i is applied with a varying stepsize from
+    zero to one.
     Args:
         args: command line arguments
         net: network
@@ -977,7 +800,6 @@ def make_plot_output_space(args, net, i, loss_function,
         net.backward(loss, args.target_stepsize, save_target=False,
                      norm_ratio=args.norm_ratio)
 
-
     # compute the start output value
     # output_traj = np.empty((steps + 1, 2))
     output_start = net.forward(inputs)
@@ -1008,10 +830,10 @@ def make_plot_output_space(args, net, i, loss_function,
     output_arrow_start = output_start[0, 0:2].detach().cpu().numpy()
 
     ax.arrow(output_arrow_start[0], output_arrow_start[1],
-              output_arrow[0], output_arrow[1],
-              width=0.05,
-              head_width=0.3
-              )
+             output_arrow[0], output_arrow[1],
+             width=0.05,
+             head_width=0.3
+             )
 
     file_name = 'output_space_updates_fig_' + args.network_type + '.svg'
     plt.savefig(os.path.join(args.out_dir, file_name))
@@ -1036,11 +858,11 @@ def plot_contours(y, label, loss_function, ax, fontsize=26):
 
     distance = np.linalg.norm(y.detach().cpu().numpy() -
                               label.detach().cpu().numpy())
-    y1 = np.linspace(label[0].detach().cpu().numpy() - 1.1*distance,
-                     label[0].detach().cpu().numpy() + 1.1*distance,
+    y1 = np.linspace(label[0].detach().cpu().numpy() - 1.1 * distance,
+                     label[0].detach().cpu().numpy() + 1.1 * distance,
                      num=gridpoints)
-    y2 = np.linspace(label[1].detach().cpu().numpy() - 1.1*distance,
-                     label[1].detach().cpu().numpy() + 1.1*distance,
+    y2 = np.linspace(label[1].detach().cpu().numpy() - 1.1 * distance,
+                     label[1].detach().cpu().numpy() + 1.1 * distance,
                      num=gridpoints)
 
     Y1, Y2 = np.meshgrid(y1, y2)
@@ -1048,17 +870,17 @@ def plot_contours(y, label, loss_function, ax, fontsize=26):
     L = np.zeros(Y1.shape)
     for i in range(gridpoints):
         for j in range(gridpoints):
-            y_sample = torch.Tensor([Y1[i,j], Y2[i, j]])
-            L[i,j] = loss_function(y_sample, label).item()
+            y_sample = torch.Tensor([Y1[i, j], Y2[i, j]])
+            L[i, j] = loss_function(y_sample, label).item()
 
-    levels = np.linspace(1.01*L.min(), L.max(), num=9)
+    levels = np.linspace(1.01 * L.min(), L.max(), num=9)
 
     ax.tick_params(axis='both', which='major', labelsize=fontsize)
     CS = ax.contour(Y1, Y2, L, levels=levels)
 
 
 def make_plot_output_space_bp(args, net, i, loss_function,
-                           targets, inputs, steps=20):
+                              targets, inputs, steps=20):
     """
     Make a plot of how the output activations would change if the update
     for the parameters of layer(s) i is applied with a varying stepsize from
@@ -1097,8 +919,6 @@ def make_plot_output_space_bp(args, net, i, loss_function,
     loss = loss_function(predictions, targets)
     loss.backward()
 
-
-
     # Interpolate the output trajectory
     # output_traj = np.empty((steps + 1, 2))
     output_start = net(inputs)
@@ -1116,7 +936,7 @@ def make_plot_output_space_bp(args, net, i, loss_function,
     # dimensions
     distance = np.linalg.norm(output_start.detach().cpu().numpy() -
                               targets.detach().cpu().numpy())
-    x_low = targets[0,0].detach().cpu().numpy() - 1.1 * distance
+    x_low = targets[0, 0].detach().cpu().numpy() - 1.1 * distance
     x_high = targets[0, 0].detach().cpu().numpy() + 1.1 * distance
     y_low = targets[0, 1].detach().cpu().numpy() - 1.1 * distance
     y_high = targets[0, 1].detach().cpu().numpy() + 1.1 * distance
@@ -1129,10 +949,10 @@ def make_plot_output_space_bp(args, net, i, loss_function,
     output_arrow_start = output_start[0, 0:2].detach().cpu().numpy()
 
     ax.arrow(output_arrow_start[0], output_arrow_start[1],
-              output_arrow[0], output_arrow[1],
-              width=0.05,
-              head_width=0.3
-              )
+             output_arrow[0], output_arrow[1],
+             width=0.05,
+             head_width=0.3
+             )
 
     file_name = 'output_space_updates_fig_' + args.network_type + '.svg'
     plt.savefig(os.path.join(args.out_dir, file_name))
@@ -1155,7 +975,7 @@ def nullspace(A, tol=1e-12):
     if S.min() >= tol:
         null_start = len(S)
     else:
-        null_start = int(len(S) - torch.sum(S<tol))
+        null_start = int(len(S) - torch.sum(S < tol))
 
     V_null = V[:, null_start:]
     return V_null
@@ -1172,11 +992,9 @@ def nullspace_relative_norm(A, x, tol=1e-12):
         x = x.unsqueeze(1)
     A_null = nullspace(A, tol=tol)
     x_null_coordinates = A_null.t().mm(x)
-    ratio = x_null_coordinates.norm()/x.norm()
+    ratio = x_null_coordinates.norm() / x.norm()
     return ratio
 
 
 if __name__ == '__main__':
     pass
-
-

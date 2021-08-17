@@ -17,13 +17,16 @@ In here, we define classes for fully connected layers in a multilayer perceptron
 network that will be trained by difference target propagation.
 """
 
+import warnings
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
 from tensorboardX import SummaryWriter
+
 import lib.utils as utils
-import warnings
+
 
 class DTPLayer(nn.Module):
     """ An abstract base class for a layer of an MLP that will be trained by the
@@ -636,67 +639,7 @@ class DTPLayer(nn.Module):
         relative_norm = utils.nullspace_relative_norm(J, weights_update_flat)
         return relative_norm
 
-    def save_logs(self, writer, step, name, no_gradient=False,
-                  no_fb_param=False):
-        """
-        Save logs and plots of this layer on tensorboardX
-        Args:
-            writer (SummaryWriter): summary writer from tensorboardX
-            step (int): the global step used for the x-axis of the plots
-            name (str): The name of the layer
-            no_gradient (bool): flag indicating whether we should skip saving
-                the gradients of the feedback weights.
-            no_fb_param (bool): don't log the feedback parameters
-
-        """
-        forward_weights_norm = torch.norm(self.weights)
-        writer.add_scalar(tag='{}/forward_weights_norm'.format(name),
-                          scalar_value=forward_weights_norm,
-                          global_step=step)
-        if self.weights.grad is not None:
-            forward_weights_gradients_norm = torch.norm(self.weights.grad)
-            writer.add_scalar(tag='{}/forward_weights_gradients_norm'.format(name),
-                              scalar_value=forward_weights_gradients_norm,
-                              global_step=step)
-        if self.bias is not None:
-            forward_bias_norm = torch.norm(self.bias)
-
-            writer.add_scalar(tag='{}/forward_bias_norm'.format(name),
-                              scalar_value=forward_bias_norm,
-                              global_step=step)
-            if self.bias.grad is not None:
-                forward_bias_gradients_norm = torch.norm(self.bias.grad)
-                writer.add_scalar(tag='{}/forward_bias_gradients_norm'.format(name),
-                                  scalar_value=forward_bias_gradients_norm,
-                                  global_step=step)
-        if not no_fb_param:
-            feedback_weights_norm = torch.norm(self.feedbackweights)
-            writer.add_scalar(tag='{}/feedback_weights_norm'.format(name),
-                              scalar_value=feedback_weights_norm,
-                              global_step=step)
-            if self.feedbackbias is not None:
-                feedback_bias_norm = torch.norm(self.feedbackbias)
-                writer.add_scalar(tag='{}/feedback_bias_norm'.format(name),
-                                  scalar_value=feedback_bias_norm,
-                                  global_step=step)
-
-            if not no_gradient and self.feedbackweights.grad is not None:
-                feedback_weights_gradients_norm = torch.norm(
-                    self.feedbackweights.grad)
-                writer.add_scalar(
-                    tag='{}/feedback_weights_gradients_norm'.format(name),
-                    scalar_value=feedback_weights_gradients_norm,
-                    global_step=step)
-                if self.feedbackbias is not None:
-                    feedback_bias_gradients_norm = torch.norm(
-                        self.feedbackbias.grad)
-                    writer.add_scalar(
-                        tag='{}/feedback_bias_gradients_norm'.format(name),
-                        scalar_value=feedback_bias_gradients_norm,
-                        global_step=step)
-
-    def save_feedback_batch_logs(self, writer, step, name, no_gradient=False,
-                                 init=False):
+    def save_feedback_batch_logs(self, writer, step, name, no_gradient=False, init=False):
         """
         Save logs for one minibatch.
         Args:
@@ -736,14 +679,3 @@ class DTPLayer(nn.Module):
             return (self.weights.grad, self.bias.grad)
         else:
             return (self.weights.grad, )
-
-
-
-
-
-
-
-
-
-
-

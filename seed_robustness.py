@@ -18,13 +18,15 @@ This is a script to run a certain hyper parameter setting for various random
 seeds, to test random seed robustness
 """
 
-import importlib
 import argparse
+import importlib
 import os
 import sys
+
 import numpy as np
-import main
 import pandas as pd
+
+import main
 
 
 def _override_cmd_arg(config, fixed_space):
@@ -44,6 +46,7 @@ def _override_cmd_arg(config, fixed_space):
         if not cmd == '':
             sys.argv.append(cmd)
 
+
 def run_training(config, config_fixed={}):
     """ Run the mainfile with the given config file and save the results of the
     alignment angles in the angle_dict"""
@@ -52,6 +55,7 @@ def run_training(config, config_fixed={}):
     summary = main.run()
 
     return summary
+
 
 def run():
     parser = argparse.ArgumentParser()
@@ -129,10 +133,8 @@ def run():
     results.loc['mean'] = means
     results.loc['std'] = stds
 
-
     results.to_csv(os.path.join(args.out_dir, filename))
+
 
 if __name__ == '__main__':
     run()
-    
-

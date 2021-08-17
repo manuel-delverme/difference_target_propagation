@@ -17,21 +17,19 @@ Collection of train and test functions.
 """
 
 import os
-import random
+import pickle
 from argparse import Namespace
 
 import numpy as np
-import torch
-from torch.utils.data import DataLoader
-import torch.nn as nn
-import torch.nn.functional as F
-import matplotlib.pyplot as plt
-from tensorboardX import SummaryWriter
 import pandas as pd
+import torch
+import torch.nn as nn
+from tensorboardX import SummaryWriter
+from torch.utils.data import DataLoader
 
 from lib import utils
 from lib.networks import LeeDTPNetwork, DTPNetwork
-import pickle
+
 
 def train(args, device, train_loader, net, writer, test_loader, summary,
           val_loader):
@@ -59,7 +57,7 @@ def train(args, device, train_loader, net, writer, test_loader, summary,
             pickle.dump(forward_parameters, f)
     if args.load_weights:
         filename = os.path.join(args.out_dir, 'weights.pickle')
-        forward_parameters_loaded = pickle.load( open(filename, 'rb'))
+        forward_parameters_loaded = pickle.load(open(filename, 'rb'))
         for i in range(len(forward_parameters_loaded)):
             net.layers[i]._weights = forward_parameters_loaded[i]
 
@@ -131,7 +129,7 @@ def train(args, device, train_loader, net, writer, test_loader, summary,
         train_var.summary['rec_loss_init'] = av_reconstruction_loss_init
         train_var.summary['rec_loss_init_combined'] = \
             0.5 * (train_var.summary['rec_loss_init'] + \
-            train_var.summary['rec_loss_first'])
+                   train_var.summary['rec_loss_first'])
 
         if args.train_only_feedback_parameters:
             print('Terminating training')
@@ -157,7 +155,6 @@ def train(args, device, train_loader, net, writer, test_loader, summary,
                                      inputs,
                                      steps=20)
         return train_var.summary
-
 
     train_var.epochs = 0
     for e in range(args.epochs):
@@ -220,7 +217,7 @@ def train(args, device, train_loader, net, writer, test_loader, summary,
 
         if not args.no_val_set:
             train_var.val_losses = np.append(train_var.val_losses,
-                                         train_var.val_loss)
+                                             train_var.val_loss)
         if not args.freeze_fb_weights:
             av_epoch_reconstruction_loss = np.mean(train_var.reconstruction_losses)
             var_epoch_reconstruction_loss = np.var(train_var.reconstruction_losses)
@@ -344,8 +341,6 @@ def train_parallel(args, train_var, device, train_loader, net, writer):
         test_loader (DataLoader): The data handler for the test data
     """
 
-
-
     for i, (inputs, targets) in enumerate(train_loader):
         if args.double_precision:
             inputs, targets = inputs.double().to(device), targets.to(device)
@@ -366,7 +361,6 @@ def train_parallel(args, train_var, device, train_loader, net, writer):
         if not args.freeze_fb_weights:
             train_feedback_parameters(args, net, train_var.feedback_optimizer)
 
-
         if args.classification:
             train_var.accuracies = np.append(train_var.accuracies,
                                              train_var.batch_accuracy)
@@ -374,8 +368,8 @@ def train_parallel(args, train_var, device, train_loader, net, writer):
                                      train_var.batch_loss.item())
         if not args.freeze_fb_weights:
             train_var.reconstruction_losses = np.append(
-            train_var.reconstruction_losses,
-            net.get_av_reconstruction_loss())
+                train_var.reconstruction_losses,
+                net.get_av_reconstruction_loss())
 
         for l, layer in enumerate(net.layers):
             loss_rec = layer.reconstruction_loss
@@ -385,7 +379,7 @@ def train_parallel(args, train_var, device, train_loader, net, writer):
         if args.save_logs and i % args.log_interval == 0:
             if not args.freeze_fb_weights:
                 utils.save_feedback_batch_logs(args, writer,
-                                           train_var.batch_idx, net)
+                                               train_var.batch_idx, net)
             utils.save_forward_batch_logs(args, writer, train_var.batch_idx,
                                           net,
                                           train_var.batch_loss, predictions)
@@ -404,7 +398,6 @@ def train_parallel(args, train_var, device, train_loader, net, writer):
                                           'correct layer to optimize with '
                                           'forward_optimizer.step(i).')
             train_var.forward_optimizer.step()
-
 
 
 def train_separate(args, train_var, device, train_loader, net, writer):
@@ -446,7 +439,6 @@ def train_separate(args, train_var, device, train_loader, net, writer):
                                                train_var.batch_idx_fb, net)
 
                 train_var.batch_idx_fb += 1
-
 
     # Train forward parameters on whole training batch
     for i, (inputs, targets) in enumerate(train_loader):
@@ -527,13 +519,14 @@ def train_forward_parameters(args, net, predictions, targets, loss_function,
         if args.output_activation == 'sigmoid':
             batch_accuracy = utils.accuracy(predictions,
                                             utils.one_hot_to_int(targets))
-        else: #softmax
+        else:  # softmax
             batch_accuracy = utils.accuracy(predictions, targets)
     else:
         batch_accuracy = None
     batch_loss = loss
 
     return batch_accuracy, batch_loss
+
 
 def train_feedback_parameters(args, net, feedback_optimizer):
     """ Train the feedback parameters on the current mini-batch."""
@@ -549,15 +542,16 @@ def train_feedback_parameters(args, net, feedback_optimizer):
             net.compute_feedback_gradients(k)
     elif args.direct_fb:
         if not args.train_randomized_fb:
-            for k in range(0, net.depth-1):
+            for k in range(0, net.depth - 1):
                 net.compute_feedback_gradients(k)
         else:
-            k = np.random.randint(0, net.depth-1)
+            k = np.random.randint(0, net.depth - 1)
             net.compute_feedback_gradients(k)
     else:
         net.compute_feedback_gradients()
 
     feedback_optimizer.step()
+
 
 def test(args, device, net, test_loader, loss_function):
     """
@@ -584,18 +578,18 @@ def test(args, device, net, test_loader, loss_function):
                 inputs, targets = inputs.to(device), targets.to(device)
             if not args.network_type == 'DDTPConv':
                 inputs = inputs.flatten(1, -1)
-            if args.classification and\
+            if args.classification and \
                     args.output_activation == 'sigmoid':
                 # convert targets to one hot vectors for MSE loss:
                 targets = utils.int_to_one_hot(targets, 10, device,
-                                           soft_target=args.soft_target)
+                                               soft_target=args.soft_target)
             predictions = net.forward(inputs)
             loss += loss_function(predictions, targets).item()
             if args.classification:
                 if args.output_activation == 'sigmoid':
                     accuracy += utils.accuracy(predictions,
                                                utils.one_hot_to_int(
-                                                        targets))
+                                                   targets))
                 else:  # softmax
                     accuracy += utils.accuracy(predictions, targets)
     loss /= nb_batches
@@ -611,7 +605,6 @@ def train_only_feedback_parameters(args, train_var, device, train_loader,
     """ Train only the feedback parameters for the given amount of epochs.
     This function is used to initialize the network in a 'pseudo-inverse'
     condition. """
-
 
     for i, (inputs, targets) in enumerate(train_loader):
         # print("  train fb: ", i)
@@ -643,8 +636,7 @@ def train_only_feedback_parameters(args, train_var, device, train_loader,
             train_var.init_idx += 1
 
 
-def train_extra_fb_minibatches(args, train_var, device, train_loader,
-                               net):
+def train_extra_fb_minibatches(args, train_var, device, train_loader, net):
     train_loader_iter = iter(train_loader)
     for i in range(args.extra_fb_minibatches):
         (inputs, targets) = train_loader_iter.next()
@@ -658,252 +650,118 @@ def train_extra_fb_minibatches(args, train_var, device, train_loader,
         train_feedback_parameters(args, net, train_var.feedback_optimizer)
 
 
-def train_bp(args, device, train_loader, net, writer, test_loader, summary,
-             val_loader):
-    print('Training network ...')
+def train_bp(args, device, train_loader, net, writer, test_loader, val_loader):
     net.train()
     forward_optimizer = utils.OptimizerList(args, net)
-
     nb_batches = len(train_loader)
 
-    if args.classification:
-        if args.output_activation == 'softmax':
-            loss_function = nn.CrossEntropyLoss()
-        elif args.output_activation == 'sigmoid':
-            loss_function = nn.MSELoss()
-        else:
-            raise ValueError('The mnist dataset can only be combined with a '
-                             'sigmoid or softmax output activation.')
-
-    elif args.regression:
-        loss_function = nn.MSELoss()
-    else:
-        raise ValueError('The provided dataset {} is not supported.'.format(
-            args.dataset
-        ))
-
+    loss_function = nn.CrossEntropyLoss()
     epoch_losses = np.array([])
-    epoch_reconstruction_losses = np.array([])
-    epoch_reconstruction_losses_var = np.array([])
     test_losses = np.array([])
     val_losses = np.array([])
-    val_loss = None
-    val_accuracy = None
 
-    if args.classification:
-        epoch_accuracies = np.array([])
-        test_accuracies = np.array([])
-        val_accuracies = np.array([])
+    epoch_accuracies = np.array([])
+    test_accuracies = np.array([])
+    val_accuracies = np.array([])
 
-    if args.output_space_plot:
-        forward_optimizer.zero_grad()
-        val_loader_iter = iter(val_loader)
-        (inputs, targets) = val_loader_iter.next()
-        inputs, targets = inputs.to(device), targets.to(device)
-        if args.classification:
-            if args.output_activation == 'sigmoid':
-                targets = utils.int_to_one_hot(targets, 10, device,
-                                               soft_target=1.)
-            else:
-                raise utils.NetworkError("output space plot for classification "
-                                     "tasks is only possible with sigmoid "
-                                     "output layer.")
-        utils.make_plot_output_space_bp(args, net,
-                                     args.output_space_plot_layer_idx,
-                                     loss_function,
-                                     targets,
-                                     inputs,
-                                     steps=20)
-        return summary
-
-    for e in range(args.epochs):
-        if args.classification:
-            running_accuracy = 0
-        else:
-            running_accuracy = None
+    steps = 0
+    for epoch in range(args.epochs):
+        running_accuracy = 0
         running_loss = 0
         for i, (inputs, targets) in enumerate(train_loader):
-            if args.double_precision:
-                inputs, targets = inputs.double().to(
-                    device), targets.to(device)
-            else:
-                inputs, targets = inputs.to(device), targets.to(device)
-            if not args.network_type == 'BPConv':
-                inputs = inputs.flatten(1, -1)
-            if args.classification and \
-                    args.output_activation == 'sigmoid':
-                # convert targets to one hot vectors for MSE loss:
-                targets = utils.int_to_one_hot(targets, 10, device,
-                                               soft_target=args.soft_target)
+            inputs, targets = inputs.to(device), targets.to(device)
 
+            inputs = inputs.flatten(1, -1)
             forward_optimizer.zero_grad()
             predictions = net(inputs)
             loss = loss_function(predictions, targets)
             loss.backward()
+            steps += 1
             forward_optimizer.step()
 
             running_loss += loss.item()
+            running_accuracy += utils.accuracy(predictions, targets)
 
-            if args.classification:
-                if args.output_activation == 'sigmoid':
-                    running_accuracy += utils.accuracy(predictions,
-                                                    utils.one_hot_to_int(
-                                                        targets))
-                else:  # softmax
-                    running_accuracy += utils.accuracy(predictions, targets)
+        test_accuracy, test_loss = test_bp(device, net, test_loader, loss_function)
+        val_accuracy, val_loss = test_bp(device, net, val_loader, loss_function)
 
-        test_accuracy, test_loss = test_bp(args, device, net, test_loader,
-                                           loss_function)
-        if not args.no_val_set:
-            val_accuracy, val_loss = test_bp(args, device, net, val_loader,
-                                             loss_function)
-        epoch_loss = running_loss/nb_batches
-        if args.classification:
-            epoch_accuracy = running_accuracy/nb_batches
-        else:
-            epoch_accuracy = None
+        epoch_loss = running_loss / nb_batches
+        epoch_accuracy = running_accuracy / nb_batches
 
-        print('Epoch {} -- training loss = {}.'.format(e + 1,
-                                                       epoch_loss))
-        if not args.no_val_set:
-            print('Epoch {} -- val loss = {}.'.format(e + 1, val_loss))
-        print('Epoch {} -- test loss = {}.'.format(e + 1, test_loss))
+        print('Epoch {} -- training loss = {}.'.format(epoch + 1, epoch_loss))
+        print('Epoch {} -- val loss = {}.'.format(epoch + 1, val_loss))
+        print('Epoch {} -- test loss = {}.'.format(epoch + 1, test_loss))
 
-        if args.classification:
-            print('Epoch {} -- training acc  = {}%'.format(
-                e + 1, epoch_accuracy * 100))
-            if not args.no_val_set:
-                print('Epoch {} -- val acc  = {}%'.format(
-                    e + 1, val_accuracy * 100))
-            print('Epoch {} -- test acc  = {}%'.format(
-                e + 1, test_accuracy * 100))
-        if args.save_logs:
-            utils.save_logs(writer, step=e + 1, net=net,
-                            loss=epoch_loss,
-                            accuracy=epoch_accuracy,
-                            test_loss=test_loss,
-                            test_accuracy=test_accuracy,
-                            val_loss=val_loss,
-                            val_accuracy=val_accuracy)
+        print('Epoch {} -- training acc  = {}%'.format(epoch + 1, epoch_accuracy * 100))
+        print('Epoch {} -- val acc  = {}%'.format(epoch + 1, val_accuracy * 100))
+        print('Epoch {} -- test acc  = {}%'.format(epoch + 1, test_accuracy * 100))
 
-        epoch_losses = np.append(epoch_losses,
-                                           epoch_loss)
-        test_losses = np.append(test_losses,
-                                          test_loss)
-        if not args.no_val_set:
-            val_losses = np.append(val_losses, val_loss)
+        utils.save_logs(
+            writer, step=epoch + 1, loss=epoch_loss, accuracy=epoch_accuracy, test_loss=test_loss, test_accuracy=test_accuracy, val_loss=val_loss, val_accuracy=val_accuracy)
 
-        if args.classification:
-            epoch_accuracies = np.append(
-                epoch_accuracies,
-                epoch_accuracy)
-            test_accuracies = np.append(test_accuracies,
-                                                  test_accuracy)
-            if not args.no_val_set:
-                val_accuracies = np.append(val_accuracies, val_accuracy)
+        epoch_losses = np.append(epoch_losses, epoch_loss)
+        test_losses = np.append(test_losses, test_loss)
 
-        utils.save_summary_dict(args, summary)
+        val_losses = np.append(val_losses, val_loss)
 
-        if e > 4:
-            # stop unpromising runs
-            if args.dataset in ['mnist', 'fashion_mnist']:
-                if epoch_accuracy < 0.4:
-                    # error code to indicate pruned run
-                    print('writing error code -1')
-                    summary['finished'] = -1
-                    break
-            if args.dataset in ['cifar10']:
-                if epoch_accuracy < 0.25:
-                    # error code to indicate pruned run
-                    print('writing error code -1')
-                    summary['finished'] = -1
-                    break
+        epoch_accuracies = np.append(epoch_accuracies, epoch_accuracy)
+        test_accuracies = np.append(test_accuracies, test_accuracy)
+        val_accuracies = np.append(val_accuracies, val_accuracy)
 
-    if not args.epochs == 0:
-        # save training summary results in summary dict
-        summary['loss_train_last'] = epoch_loss
-        summary['loss_test_last'] = test_loss
-        summary['loss_train_best'] = epoch_losses.min()
-        summary['loss_test_best'] = test_losses.min()
-        summary['loss_train'] = epoch_losses
-        summary['loss_test'] = test_losses
-        if not args.no_val_set:
-            summary['loss_val_last'] = val_loss
-            summary['loss_val_best'] = val_losses.min()
-            summary['loss_val'] = val_losses
-            # pick the epoch with best validation loss and save the corresponding
-            # test loss
-            best_epoch = val_losses.argmin()
-            summary['epoch_best_loss'] = best_epoch
-            summary['loss_test_val_best'] = \
-                test_losses[best_epoch]
-            summary['loss_train_val_best'] = \
-                epoch_losses[best_epoch]
+        writer.add_scalar('loss_train_last', epoch_loss, steps)
+        writer.add_scalar('loss_test_last', test_loss, steps)
+        writer.add_scalar('loss_train_best', epoch_losses.min(), steps)
+        writer.add_scalar('loss_test_best', test_losses.min(), steps)
+        writer.add_scalar('loss_train', epoch_losses, steps)
+        writer.add_scalar('loss_test', test_losses, steps)
+        writer.add_scalar('loss_val_last', val_loss, steps)
+        writer.add_scalar('loss_val_best', val_losses.min(), steps)
+        writer.add_scalar('loss_val', val_losses, steps)
+        # pick the epoch with best validation loss and save the corresponding
+        # test loss
+        best_epoch = val_losses.argmin()
+        writer.add_scalar('epoch_best_loss', best_epoch, steps)
+        writer.add_scalar('loss_test_val_best', test_losses[best_epoch], steps)
+        writer.add_scalar('loss_train_val_best', epoch_losses[best_epoch], steps)
 
-        if args.classification:
-            summary['acc_train_last'] = epoch_accuracy
-            summary['acc_test_last'] = test_accuracy
-            summary[
-                'acc_train_best'] = epoch_accuracies.max()
-            summary[
-                'acc_test_best'] = test_accuracies.max()
-            summary['acc_train'] = epoch_accuracies
-            summary['acc_test'] = test_accuracies
-            if not args.no_val_set:
-                summary['acc_val'] = val_accuracies
-                summary['acc_val_last'] = val_accuracy
-                summary['acc_val_best'] = val_accuracies.max()
-                # pick the epoch with best validation acc and save the corresponding
-                # test acc
-                best_epoch = val_accuracies.argmax()
-                summary['epoch_best_acc'] = best_epoch
-                summary['acc_test_val_best'] = \
-                    test_accuracies[best_epoch]
-                summary['acc_train_val_best'] = \
-                    epoch_accuracies[best_epoch]
-    utils.save_summary_dict(args, summary)
+        writer.add_scalar('acc_train_last', epoch_accuracy, steps)
+        writer.add_scalar('acc_test_last', test_accuracy, steps)
+        writer.add_scalar('acc_train_best', epoch_accuracies.max(), steps)
+        writer.add_scalar('acc_test_best', test_accuracies.max(), steps)
+        writer.add_scalar('acc_train', epoch_accuracies, steps)
+        writer.add_scalar('acc_test', test_accuracies, steps)
 
+        writer.add_scalar('acc_val', val_accuracies, steps)
+        writer.add_scalar('acc_val_last', val_accuracy, steps)
+        writer.add_scalar('acc_val_best', val_accuracies.max(), steps)
+        # pick the epoch with best validation acc and save the corresponding
+        # test acc
+        best_epoch = val_accuracies.argmax()
+        writer.add_scalar('epoch_best_acc', best_epoch, steps)
+        writer.add_scalar('acc_test_val_best', test_accuracies[best_epoch], steps)
+        writer.add_scalar('acc_train_val_best', epoch_accuracies[best_epoch], steps)
     print('Training network ... Done')
-    return summary
 
 
-def test_bp(args, device, net, test_loader, loss_function):
+def test_bp(device, net, test_loader, loss_function):
     loss = 0
-    if args.classification:
-        accuracy = 0
-    nb_batches = len(test_loader)
+    accuracy = 0
+    num_batches = len(test_loader)
+
     with torch.no_grad():
         for inputs, targets in test_loader:
-            if args.double_precision:
-                inputs, targets = inputs.double().to(device), targets.to(
-                    device)
-            else:
-                inputs, targets = inputs.to(device), targets.to(device)
-            if not args.network_type == 'BPConv':
-                inputs = inputs.flatten(1, -1)
-            if args.classification and args.output_activation == 'sigmoid':
-                # convert targets to one hot vectors for MSE loss:
-                targets = utils.int_to_one_hot(targets, 10, device,
-                                           soft_target=args.soft_target)
+            inputs, targets = inputs.to(device), targets.to(device)
+            inputs = inputs.flatten(1, -1)
             predictions = net(inputs)
             loss += loss_function(predictions, targets).item()
-            if args.classification:
-                if args.output_activation == 'sigmoid':
-                    accuracy += utils.accuracy(predictions,
-                                               utils.one_hot_to_int(
-                                                        targets))
-                else:  # softmax
-                    accuracy += utils.accuracy(predictions, targets)
-    loss /= nb_batches
-    if args.classification:
-        accuracy /= nb_batches
-    else:
-        accuracy = None
+            accuracy += utils.accuracy(predictions, targets)
+    loss /= num_batches
+    accuracy /= num_batches
     return accuracy, loss
 
 
 def gn_damping_hpsearch(args, train_var, device, train_loader, net, writer):
-    nb_hidden_layers = len(net.layers)-1
+    nb_hidden_layers = len(net.layers) - 1
     freeze_forward_weights_copy = args.freeze_forward_weights
     args.freeze_forward_weights = True
     damping_values = np.logspace(-5., 1., num=7, base=10.0)
@@ -913,7 +771,7 @@ def gn_damping_hpsearch(args, train_var, device, train_loader, net, writer):
     for k, gn_damping in enumerate(damping_values):
         print('testing damping={}'.format(gn_damping))
         angles_df = pd.DataFrame(columns=[i for i in range(0, nb_hidden_layers)])
-        step=0
+        step = 0
         for i, (inputs, targets) in enumerate(train_loader):
             # print("  train fw: ", i)
             if args.double_precision:
@@ -937,7 +795,7 @@ def gn_damping_hpsearch(args, train_var, device, train_loader, net, writer):
                                          train_var.loss_function,
                                          train_var.forward_optimizer)
 
-            if  i % args.log_interval == 0:
+            if i % args.log_interval == 0:
                 net.save_gnt_angles(writer, step, predictions,
                                     loss, gn_damping,
                                     retain_graph=False,
@@ -954,7 +812,3 @@ def gn_damping_hpsearch(args, train_var, device, train_loader, net, writer):
     args.freeze_forward_weights = freeze_forward_weights_copy
 
     return optimal_damping_constants
-
-
-
-
