@@ -12,46 +12,39 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# Modifications copyright (C) 2021 Manuel Del Verme
+
+import warnings
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
+
 from lib import utils
-import warnings
+
 
 class DDTPConvLayer(nn.Module):
     """
     A convolutional layer combined with a pool layer.
     """
-    def __init__(self, in_channels, out_channels, kernel_size,
-                 output_size, feature_size, stride=1, padding=0,
-                 dilation=1, groups=1, bias=True, padding_mode='zeros',
-                 initialization='xavier_normal', pool_type='max',
-                 pool_kernel_size=None, pool_stride=None, pool_padding=0,
-                 pool_dilation=1, forward_activation='tanh',
+
+    def __init__(self, in_channels, out_channels, kernel_size, output_size, feature_size, stride=1, padding=0, dilation=1, groups=1, bias=True, padding_mode='zeros',
+                 initialization='xavier_normal', pool_type='max', pool_kernel_size=None, pool_stride=None, pool_padding=0, pool_dilation=1, forward_activation='tanh',
                  feedback_activation='linear'):
         nn.Module.__init__(self)
-
-        self._conv_layer = nn.Conv2d(in_channels, out_channels, kernel_size,
-                                     stride, padding, dilation, groups, bias,
-                                     padding_mode)
+        self._conv_layer = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias, padding_mode)
 
         if pool_kernel_size is None:
             pool_kernel_size = kernel_size
-        self._pool_layer = self.construct_pool_layer(pool_type, pool_kernel_size,
-                                                     pool_stride, pool_padding,
-                                                     pool_dilation)
-        feature_size_flat = feature_size[0]*feature_size[1]*feature_size[2]
-        self._feedbackweights = nn.Parameter(torch.Tensor(feature_size_flat,
-                                                          output_size),
-                                             requires_grad=False)
+        self._pool_layer = self.construct_pool_layer(pool_type, pool_kernel_size, pool_stride, pool_padding, pool_dilation)
+        feature_size_flat = feature_size[0] * feature_size[1] * feature_size[2]
+        self._feedbackweights = nn.Parameter(torch.Tensor(feature_size_flat, output_size), requires_grad=False)
+
         if initialization == 'xavier_normal':
             nn.init.xavier_normal_(self._conv_layer.weight.data)
             nn.init.xavier_normal_(self._feedbackweights.data)
         else:
-            raise ValueError('initialization type {} not supported yet'
-                             'for convolutional layers'.format(initialization))
+            raise ValueError('initialization type {} not supported yetfor convolutional layers'.format(initialization))
         if bias:
             nn.init.constant_(self._conv_layer.bias.data, 0)
 
@@ -141,8 +134,7 @@ class DDTPConvLayer(nn.Module):
         elif self.forward_activation == 'sigmoid':
             return torch.sigmoid(x)
         else:
-            raise ValueError('The provided forward activation {} is not '
-                             'supported'.format(self.forward_activation))
+            raise ValueError('The provided forward activation {} is not supported'.format(self.forward_activation))
 
     def feedback_activationfunction(self, x):
         """ Element-wise feedback activation function"""
@@ -155,13 +147,13 @@ class DDTPConvLayer(nn.Module):
         elif self.feedback_activation == 'leakyrelu':
             return F.leaky_relu(x, 5)
         elif self.feedback_activation == 'sigmoid':
-            if torch.sum(x < 1e-12) > 0 or torch.sum(x > 1-1e-12) > 0:
+            if torch.sum(x < 1e-12) > 0 or torch.sum(x > 1 - 1e-12) > 0:
                 warnings.warn('Input to inverse sigmoid is out of'
-                                 'bound: x={}'.format(x))
-            inverse_sigmoid = torch.log(x/(1-x))
+                              'bound: x={}'.format(x))
+            inverse_sigmoid = torch.log(x / (1 - x))
             if utils.contains_nan(inverse_sigmoid):
                 raise ValueError('inverse sigmoid function outputted a NaN')
-            return torch.log(x/(1-x))
+            return torch.log(x / (1 - x))
         else:
             raise ValueError('The provided feedback activation {} is not '
                              'supported'.format(self.feedback_activation))
@@ -219,9 +211,9 @@ class DDTPConvLayer(nn.Module):
             raise ValueError('Sigma should be greater than zero when using the'
                              'difference reconstruction loss. Given sigma = '
                              '{}'.format(sigma))
-        scale = 1/sigma**2
+        scale = 1 / sigma ** 2
         reconstruction_loss = scale * F.mse_loss(h_reconstructed,
-                                         h_corrupted)
+                                                 h_corrupted)
         self.save_feedback_gradients(reconstruction_loss)
         self.set_feedback_requires_grad(False)
 
@@ -294,17 +286,13 @@ class DDTPConvLayer(nn.Module):
         """
 
         if self.bias is not None:
-            grads = torch.autograd.grad(loss, [self.weights, self.bias],
-                                        retain_graph=retain_graph)
+            grads = torch.autograd.grad(loss, [self.weights, self.bias], retain_graph=retain_graph)
         else:
-            grads = torch.autograd.grad(loss, self.weights,
-                                        retain_graph=retain_graph)
+            grads = torch.autograd.grad(loss, self.weights, retain_graph=retain_graph)
 
         return grads
 
-    def compute_gn_activation_updates(self, output_activation, loss,
-                                      damping=0., retain_graph=False,
-                                      linear=False):
+    def compute_gn_activation_updates(self, output_activation, loss, damping=0., retain_graph=False, linear=False):
         """
         Compute the Gauss Newton update for activations of the layer. Target
         propagation tries to approximate these updates by the difference between
@@ -353,16 +341,16 @@ class DDTPConvLayer(nn.Module):
                 retain_graph_flag = True
             jacobian = utils.compute_jacobian(activations,
                                               output_activation[batch_idx, :],
-                                            retain_graph=retain_graph_flag)
+                                              retain_graph=retain_graph_flag)
             # torch.autograd.grad only accepts the original input tensor,
             # not a subpart of it. Thus we compute the jacobian to all the
             # batch samples from activations and then select the correct
             # part of it
-            jacobian = jacobian[:, batch_idx*layersize:
-                                   (batch_idx+1)*layersize]
+            jacobian = jacobian[:, batch_idx * layersize:
+                                   (batch_idx + 1) * layersize]
 
             gn_updates = utils.compute_damped_gn_update(jacobian,
-                                                output_error[batch_idx, :],
+                                                        output_error[batch_idx, :],
                                                         damping)
             activations_updates[batch_idx, :] = gn_updates.view(activations.shape[1:])
         return activations_updates
@@ -395,9 +383,9 @@ class DDTPConvLayer(nn.Module):
         parameters."""
 
         if self.bias is not None:
-            return (self.weights.grad, self.bias.grad)
+            return self.weights.grad, self.bias.grad
         else:
-            return (self.weights.grad, )
+            return self.weights.grad,
 
 
 class DDTPConvControlLayer(DDTPConvLayer):
@@ -407,15 +395,6 @@ class DDTPConvControlLayer(DDTPConvLayer):
         h_reconstructed = self.propagate_backward(output_corrupted)
 
         reconstruction_loss = F.mse_loss(h_reconstructed,
-                                                 h_corrupted)
+                                         h_corrupted)
         self.save_feedback_gradients(reconstruction_loss)
         self.set_feedback_requires_grad(False)
-
-
-
-
-
-
-
-
-

@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# Modifications copyright (C) 2021 Manuel Del Verme
 """
 A collection of helper functions
 --------------------------------
@@ -164,108 +165,6 @@ def choose_feedback_optimizer(args, net):
         ))
 
     return feedback_optimizer
-
-
-class OptimizerList:
-    """ A class for stacking a separate optimizer for each layer in a list. If
-    no separate learning rates per layer are required, a single optimizer is
-    stored in the optimizer list."""
-
-    def __init__(self, args, net):
-        if isinstance(args.lr, float):
-            forward_optimizer = choose_forward_optimizer(args, net)
-            optimizer_list = [forward_optimizer]
-        elif isinstance(args.lr, np.ndarray):
-            # if args.network_type in ('BP', 'BPConv'):
-            #     raise NetworkError('Multiple learning rates is not yet '
-            #                        'implemented for BP')
-            if args.freeze_BPlayers:
-                raise NotImplementedError('freeze_BPlayers not '
-                                          'yet supported in '
-                                          'OptimizerList')
-            else:
-                if not args.network_type == 'BPConv':
-                    if args.only_train_first_layer:
-                        print('Only training first layer')
-                        forward_params = \
-                            net.get_forward_parameter_list_first_layer()
-                    elif args.freeze_output_layer:
-                        print('Freezing output layer')
-                        forward_params = net.get_reduced_forward_parameter_list()
-                    elif args.only_train_last_two_layers:
-                        forward_params = net.get_forward_parameters_last_two_layers()
-                    elif args.only_train_last_three_layers:
-                        forward_params = net.get_forward_parameters_last_three_layers()
-                    elif args.only_train_last_four_layers:
-                        forward_params = net.get_forward_parameters_last_four_layers()
-                    else:
-                        forward_params = net.get_forward_parameter_list()
-
-                    if (not args.no_bias and not args.freeze_output_layer and
-                        len(args.lr) * 2 != len(forward_params)) or \
-                            (args.no_bias and not args.freeze_output_layer and
-                             len(args.lr) != len(forward_params)):
-                        raise NetworkError('The lenght of the list with learning rates '
-                                           'does not correspond with the size of the '
-                                           'network.')
-            if not (args.optimizer == 'SGD' or args.optimizer == 'Adam'):
-                raise NetworkError('multiple learning rates are only supported '
-                                   'for SGD optimizer')
-
-            optimizer_list = []
-            for i, lr in enumerate(args.lr):
-                eps = args.epsilon[i]
-                if args.network_type == 'BPConv':
-                    if i == 0:
-                        j = 0
-                    elif i == 1:
-                        j = 2
-                    elif i == 2:
-                        j = 4
-                    elif i == 3:
-                        j = 5
-                    if args.no_bias:
-                        parameters = [net.layers[j].weight]
-                    else:
-                        parameters = [net.layers[j].weight, net.layers[j].bias]
-                else:
-                    if args.no_bias:
-                        parameters = [net.layers[i].weights]
-                    else:
-                        parameters = [net.layers[i].weights, net.layers[i].bias]
-                if args.optimizer == 'SGD':
-                    optimizer = torch.optim.SGD(parameters,
-                                                lr=lr, momentum=args.momentum,
-                                                weight_decay=args.forward_wd)
-                elif args.optimizer == 'Adam':
-                    optimizer = torch.optim.Adam(
-                        parameters,
-                        lr=lr,
-                        betas=(args.beta1, args.beta2),
-                        eps=eps,
-                        weight_decay=args.forward_wd)
-                optimizer_list.append(optimizer)
-        else:
-            raise ValueError('Command line argument lr={} is not recognized '
-                             'as a float'
-                             'or list'.format(args.lr))
-
-        self._optimizer_list = optimizer_list
-
-    def zero_grad(self):
-        for optimizer in self._optimizer_list:
-            optimizer.zero_grad()
-
-    def step(self, i=None):
-        """
-        Perform a step on the optimizer of layer i. If i is None, a step is
-        performed on all optimizers.
-        """
-        if i is None:
-            for optimizer in self._optimizer_list:
-                optimizer.step()
-        else:
-            self._optimizer_list[i].step()
 
 
 class FbOptimizerList(object):

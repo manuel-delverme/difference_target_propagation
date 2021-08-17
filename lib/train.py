@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# Modifications copyright (C) 2021 Manuel Del Verme
 """
 Collection of train and test functions.
 """
@@ -27,6 +28,7 @@ import torch.nn as nn
 from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
 
+import lib.utils
 from lib import utils
 from lib.networks import LeeDTPNetwork, DTPNetwork
 
@@ -652,7 +654,8 @@ def train_extra_fb_minibatches(args, train_var, device, train_loader, net):
 
 def train_bp(args, device, train_loader, net, writer, test_loader, val_loader):
     net.train()
-    forward_optimizer = utils.OptimizerList(args, net)
+    forward_optimizer = lib.utils.choose_forward_optimizer(args, net)
+
     nb_batches = len(train_loader)
 
     loss_function = nn.CrossEntropyLoss()
