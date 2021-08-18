@@ -652,7 +652,7 @@ def train_extra_fb_minibatches(args, train_var, device, train_loader, net):
         train_feedback_parameters(args, net, train_var.feedback_optimizer)
 
 
-def train_bp(args, device, train_loader, net, writer, test_loader, val_loader):
+def train_bp(args, device, train_loader, net, writer, test_loader):
     net.train()
     forward_optimizer = lib.utils.choose_forward_optimizer(args, net)
 
@@ -661,11 +661,9 @@ def train_bp(args, device, train_loader, net, writer, test_loader, val_loader):
     loss_function = nn.CrossEntropyLoss()
     epoch_losses = np.array([])
     test_losses = np.array([])
-    val_losses = np.array([])
 
     epoch_accuracies = np.array([])
     test_accuracies = np.array([])
-    val_accuracies = np.array([])
 
     steps = 0
     for epoch in range(args.epochs):
@@ -676,73 +674,43 @@ def train_bp(args, device, train_loader, net, writer, test_loader, val_loader):
 
             inputs = inputs.flatten(1, -1)
             forward_optimizer.zero_grad()
-            predictions = net(inputs)
-            loss = loss_function(predictions, targets)
+            logits = net(inputs)
+            loss = loss_function(logits, targets)
             loss.backward()
             steps += 1
             forward_optimizer.step()
 
             running_loss += loss.item()
-            running_accuracy += utils.accuracy(predictions, targets)
+            running_accuracy += utils.accuracy(logits, targets)
 
         test_accuracy, test_loss = test_bp(device, net, test_loader, loss_function)
-        val_accuracy, val_loss = test_bp(device, net, val_loader, loss_function)
 
         epoch_loss = running_loss / nb_batches
         epoch_accuracy = running_accuracy / nb_batches
 
         print('Epoch {} -- training loss = {}.'.format(epoch + 1, epoch_loss))
-        print('Epoch {} -- val loss = {}.'.format(epoch + 1, val_loss))
         print('Epoch {} -- test loss = {}.'.format(epoch + 1, test_loss))
 
         print('Epoch {} -- training acc  = {}%'.format(epoch + 1, epoch_accuracy * 100))
-        print('Epoch {} -- val acc  = {}%'.format(epoch + 1, val_accuracy * 100))
         print('Epoch {} -- test acc  = {}%'.format(epoch + 1, test_accuracy * 100))
-
-        utils.save_logs(
-            writer, step=epoch + 1, loss=epoch_loss, accuracy=epoch_accuracy, test_loss=test_loss, test_accuracy=test_accuracy, val_loss=val_loss, val_accuracy=val_accuracy)
 
         epoch_losses = np.append(epoch_losses, epoch_loss)
         test_losses = np.append(test_losses, test_loss)
 
-        val_losses = np.append(val_losses, val_loss)
-
         epoch_accuracies = np.append(epoch_accuracies, epoch_accuracy)
         test_accuracies = np.append(test_accuracies, test_accuracy)
-        val_accuracies = np.append(val_accuracies, val_accuracy)
 
-        writer.add_scalar('loss_train_last', epoch_loss, steps)
-        writer.add_scalar('loss_test_last', test_loss, steps)
-        writer.add_scalar('loss_train_best', epoch_losses.min(), steps)
-        writer.add_scalar('loss_test_best', test_losses.min(), steps)
-        writer.add_scalar('loss_train', epoch_losses, steps)
-        writer.add_scalar('loss_test', test_losses, steps)
-        writer.add_scalar('loss_val_last', val_loss, steps)
-        writer.add_scalar('loss_val_best', val_losses.min(), steps)
-        writer.add_scalar('loss_val', val_losses, steps)
+        writer.add_scalar('train/loss', epoch_loss, steps)
+        writer.add_scalar('test/loss', test_loss, steps)
+        writer.add_scalar('train/loss_best', epoch_losses.min(), steps)
+        writer.add_scalar('test/loss_best', test_losses.min(), steps)
         # pick the epoch with best validation loss and save the corresponding
         # test loss
-        best_epoch = val_losses.argmin()
-        writer.add_scalar('epoch_best_loss', best_epoch, steps)
-        writer.add_scalar('loss_test_val_best', test_losses[best_epoch], steps)
-        writer.add_scalar('loss_train_val_best', epoch_losses[best_epoch], steps)
+        writer.add_scalar('train/accuracy', epoch_accuracy, steps)
+        writer.add_scalar('test/accuracy', test_accuracy, steps)
+        writer.add_scalar('train/acc_best', epoch_accuracies.max(), steps)
+        writer.add_scalar('test/acc_best', test_accuracies.max(), steps)
 
-        writer.add_scalar('acc_train_last', epoch_accuracy, steps)
-        writer.add_scalar('acc_test_last', test_accuracy, steps)
-        writer.add_scalar('acc_train_best', epoch_accuracies.max(), steps)
-        writer.add_scalar('acc_test_best', test_accuracies.max(), steps)
-        writer.add_scalar('acc_train', epoch_accuracies, steps)
-        writer.add_scalar('acc_test', test_accuracies, steps)
-
-        writer.add_scalar('acc_val', val_accuracies, steps)
-        writer.add_scalar('acc_val_last', val_accuracy, steps)
-        writer.add_scalar('acc_val_best', val_accuracies.max(), steps)
-        # pick the epoch with best validation acc and save the corresponding
-        # test acc
-        best_epoch = val_accuracies.argmax()
-        writer.add_scalar('epoch_best_acc', best_epoch, steps)
-        writer.add_scalar('acc_test_val_best', test_accuracies[best_epoch], steps)
-        writer.add_scalar('acc_train_val_best', epoch_accuracies[best_epoch], steps)
     print('Training network ... Done')
 
 

@@ -27,7 +27,6 @@ def build_network(args):
             n_out=args.size_output,
             activation=args.hidden_activation,
             sigma=args.sigma,
-            forward_requires_grad=False,
         )
     elif args.network_type == 'DTP':
         net = networks.DTPNetwork(
@@ -36,7 +35,6 @@ def build_network(args):
             n_out=args.size_output,
             activation=args.hidden_activation,
             sigma=args.sigma,
-            forward_requires_grad=False,
             fb_activation=args.fb_activation,
             plots=args.plots,
         )

@@ -883,8 +883,8 @@ class LeeDTPNetwork(nn.Module):
         """
         nn.Module.__init__(self)
 
-        self._dtpnetwork = DTPNetwork(n_in, n_hidden[:-1], n_hidden[-1], activation=activation, output_activation=activation, bias=bias, sigma=sigma)
-        self._linearlayer = nn.Linear(n_hidden[-1], n_out, bias=bias)
+        self._dtpnetwork = DTPNetwork(n_in, n_hidden[:-1], n_hidden[-1], activation=activation, output_activation=activation, sigma=sigma)
+        self._linearlayer = nn.Linear(n_hidden[-1], n_out)
 
         nn.init.constant_(self._linearlayer.bias, 0)
 
@@ -935,7 +935,7 @@ class LeeDTPNetwork(nn.Module):
             # allowed to change the grad attribute.
             x.requires_grad = True
         x = self.linearlayer(x)
-        # TODO: implement option for other activation functions besides linear
+
         return x
 
     def backward(self, loss, target_lr, save_target=False):

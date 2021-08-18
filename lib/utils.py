@@ -209,19 +209,6 @@ class FbOptimizerList(object):
             optimizer.zero_grad()
 
 
-def save_logs(writer, step, loss, accuracy, test_loss, test_accuracy, val_loss, val_accuracy):
-    writer.add_scalar(tag='training/loss', scalar_value=loss, global_step=step)
-    writer.add_scalar(tag='training/test_loss', scalar_value=test_loss, global_step=step)
-
-    if val_loss is not None:
-        writer.add_scalar(tag='training/val_loss', scalar_value=val_loss, global_step=step)
-    if accuracy is not None:
-        writer.add_scalar(tag='training/accuracy', scalar_value=accuracy, global_step=step)
-        writer.add_scalar(tag='training/test_accuracy', scalar_value=test_accuracy, global_step=step)
-        if val_accuracy is not None:
-            writer.add_scalar(tag='training/val_accuracy', scalar_value=val_accuracy, global_step=step)
-
-
 def save_forward_batch_logs(args, writer, step, net, loss, output_activation):
     """
     Save logs and plots for the current mini-batch on tensorboardX

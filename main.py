@@ -38,7 +38,7 @@ def run():
     print(config.device)
     print('Using cuda: ' + str(config.use_cuda))
 
-    test_loader, train_loader, val_loader = load_dataset()
+    test_loader, train_loader = load_dataset()
 
     if config.log_interval is None:
         config.log_interval = max(1, int(len(train_loader) / 100))
@@ -46,7 +46,7 @@ def run():
     net = builders.build_network(config).to(config.device)
 
     writer.watch(net, log="all")
-    train_bp(args=config, device=config.device, train_loader=train_loader, net=net, writer=writer, test_loader=test_loader, val_loader=val_loader)
+    train_bp(args=config, device=config.device, train_loader=train_loader, net=net, writer=writer, test_loader=test_loader)
 
     if writer is not None:
         writer.close()
@@ -54,31 +54,30 @@ def run():
 
 def load_dataset():
     if config.dataset == 'mnist':
-
         data_dir = './data'
         transform = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize((0.1307,), (0.3081,))])
-        trainset_total = torchvision.datasets.MNIST(root=data_dir, train=True, download=True, transform=transform)
-
-        trainset, valset = torch.utils.data.random_split(trainset_total, [55000, 5000])
+            transforms.Normalize((0.1307,), (0.3081,))
+        ])
+        trainset = torchvision.datasets.MNIST(root=data_dir, train=True, download=True, transform=transform)
         train_loader = torch.utils.data.DataLoader(trainset, batch_size=config.batch_size, shuffle=True, num_workers=0)
-        val_loader = torch.utils.data.DataLoader(valset, batch_size=config.batch_size, shuffle=False, num_workers=0)
         testset = torchvision.datasets.MNIST(root=data_dir, train=False, download=True, transform=transform)
         test_loader = torch.utils.data.DataLoader(testset, batch_size=config.batch_size, shuffle=False, num_workers=0)
 
     elif config.dataset == 'cifar10':
         data_dir = './data'
-        transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-        trainset_total = torchvision.datasets.CIFAR10(root=data_dir, train=True, download=True, transform=transform)
-        trainset, valset = torch.utils.data.random_split(trainset_total, [45000, 5000])
+        transform = transforms.Compose([
+            transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        ])
+
+        trainset = torchvision.datasets.CIFAR10(root=data_dir, train=True, download=True, transform=transform)
         train_loader = torch.utils.data.DataLoader(trainset, batch_size=config.batch_size, shuffle=True, num_workers=0)
-        val_loader = torch.utils.data.DataLoader(valset, batch_size=config.batch_size, shuffle=False, num_workers=0)
         testset = torchvision.datasets.CIFAR10(root=data_dir, train=False, download=True, transform=transform)
         test_loader = torch.utils.data.DataLoader(testset, batch_size=config.batch_size, shuffle=False, num_workers=0)
     else:
         raise ValueError('The provided dataset {} is not supported.'.format(config.dataset))
-    return test_loader, train_loader, val_loader
+
+    return test_loader, train_loader
 
 
 if __name__ == '__main__':
