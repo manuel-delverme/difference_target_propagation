@@ -28,8 +28,9 @@ from lib.train import train_bp
 
 def run():
     experiment_buddy.register_defaults(vars(config))
-    writer = experiment_buddy.deploy()
+    writer = experiment_buddy.deploy(host="mila", sweep_yaml="sweep_hyper.yaml", proc_num=10)
 
+    print(config.random_seed)
     torch.manual_seed(config.random_seed)
     torch.cuda.manual_seed_all(config.random_seed)
     np.random.seed(config.random_seed)
