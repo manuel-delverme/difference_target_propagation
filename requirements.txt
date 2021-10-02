@@ -1,0 +1,6 @@
+tqdm
+torchvision==0.8.0
+experiment_buddy
+numpy
+tensorboardX
+wandb
