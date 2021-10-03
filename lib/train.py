@@ -666,6 +666,19 @@ def train_bp(args, device, train_loader, net, writer, test_loader):
     test_accuracies = np.array([])
 
     steps = 0
+    epoch = 0
+    running_accuracy = 0
+    running_loss = 0
+    for i, (inputs, targets) in enumerate(train_loader):
+        inputs, targets = inputs.to(device), targets.to(device)
+        inputs = inputs.flatten(1, -1)
+        logits = net(inputs)
+        loss = loss_function(logits, targets)
+        running_loss += loss.item()
+        running_accuracy += utils.accuracy(logits, targets)
+    metrics(device, epoch, epoch_accuracies, epoch_losses, loss_function, nb_batches, net, running_accuracy, running_loss, steps, test_accuracies, test_loader, test_losses,
+            writer)
+
     for epoch in range(args.epochs):
         running_accuracy = 0
         running_loss = 0
@@ -683,35 +696,35 @@ def train_bp(args, device, train_loader, net, writer, test_loader):
             running_loss += loss.item()
             running_accuracy += utils.accuracy(logits, targets)
 
-        test_accuracy, test_loss = test_bp(device, net, test_loader, loss_function)
-
-        epoch_loss = running_loss / nb_batches
-        epoch_accuracy = running_accuracy / nb_batches
-
-        print('Epoch {} -- training loss = {}.'.format(epoch + 1, epoch_loss))
-        print('Epoch {} -- test loss = {}.'.format(epoch + 1, test_loss))
-
-        print('Epoch {} -- training acc  = {}%'.format(epoch + 1, epoch_accuracy * 100))
-        print('Epoch {} -- test acc  = {}%'.format(epoch + 1, test_accuracy * 100))
-
-        epoch_losses = np.append(epoch_losses, epoch_loss)
-        test_losses = np.append(test_losses, test_loss)
-
-        epoch_accuracies = np.append(epoch_accuracies, epoch_accuracy)
-        test_accuracies = np.append(test_accuracies, test_accuracy)
-
-        writer.add_scalar('train/loss', epoch_loss, steps)
-        writer.add_scalar('test/loss', test_loss, steps)
-        writer.add_scalar('train/loss_best', epoch_losses.min(), steps)
-        writer.add_scalar('test/loss_best', test_losses.min(), steps)
-        # pick the epoch with best validation loss and save the corresponding
-        # test loss
-        writer.add_scalar('train/accuracy', epoch_accuracy, steps)
-        writer.add_scalar('test/accuracy', test_accuracy, steps)
-        writer.add_scalar('train/acc_best', epoch_accuracies.max(), steps)
-        writer.add_scalar('test/acc_best', test_accuracies.max(), steps)
+        metrics(device, epoch, epoch_accuracies, epoch_losses, loss_function, nb_batches, net, running_accuracy, running_loss, steps, test_accuracies, test_loader, test_losses,
+                writer)
 
     print('Training network ... Done')
+
+
+def metrics(device, epoch, epoch_accuracies, epoch_losses, loss_function, nb_batches, net, running_accuracy, running_loss, steps, test_accuracies, test_loader, test_losses,
+            writer):
+    test_accuracy, test_loss = test_bp(device, net, test_loader, loss_function)
+    epoch_loss = running_loss / nb_batches
+    epoch_accuracy = running_accuracy / nb_batches
+    print('Epoch {} -- training loss = {}.'.format(epoch + 1, epoch_loss))
+    print('Epoch {} -- test loss = {}.'.format(epoch + 1, test_loss))
+    print('Epoch {} -- training acc  = {}%'.format(epoch + 1, epoch_accuracy * 100))
+    print('Epoch {} -- test acc  = {}%'.format(epoch + 1, test_accuracy * 100))
+    epoch_losses = np.append(epoch_losses, epoch_loss)
+    test_losses = np.append(test_losses, test_loss)
+    epoch_accuracies = np.append(epoch_accuracies, epoch_accuracy)
+    test_accuracies = np.append(test_accuracies, test_accuracy)
+    writer.add_scalar('train/loss', epoch_loss, steps)
+    writer.add_scalar('test/loss', test_loss, steps)
+    writer.add_scalar('train/loss_best', epoch_losses.min(), steps)
+    writer.add_scalar('test/loss_best', test_losses.min(), steps)
+    # pick the epoch with best validation loss and save the corresponding
+    # test loss
+    writer.add_scalar('train/accuracy', epoch_accuracy, steps)
+    writer.add_scalar('test/accuracy', test_accuracy, steps)
+    writer.add_scalar('train/acc_best', epoch_accuracies.max(), steps)
+    writer.add_scalar('test/acc_best', test_accuracies.max(), steps)
 
 
 def test_bp(device, net, test_loader, loss_function):
